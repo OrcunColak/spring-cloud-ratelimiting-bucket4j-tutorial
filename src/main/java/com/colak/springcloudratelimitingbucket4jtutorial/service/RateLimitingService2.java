@@ -2,27 +2,30 @@ package com.colak.springcloudratelimitingbucket4jtutorial.service;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
+import io.github.bucket4j.Refill;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class RateLimitingService2 {
 
-    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+    private final Bucket bucket;
 
+    public RateLimitingService2() {
+        Bandwidth limit = Bandwidth.classic(10, Refill.intervally(10, Duration.ofMinutes(1)));
+        this.bucket = Bucket.builder()
+                .addLimit(limit)
+                .build();
+    }
+
+    // Block until token is available
     public void allowRequest(String apiKey) {
-        Bucket bucket = buckets.computeIfAbsent(apiKey, this::createNewBucket);
         bucket.asBlocking()
                 .consumeUninterruptibly(1);
     }
 
-    private Bucket createNewBucket(String apiKey) {
-        Bandwidth limit = Bandwidth.simple(10, Duration.ofSeconds(1));
-        return Bucket.builder()
-                .addLimit(limit)
-                .build();
+    public boolean isRateLimited() {
+        return bucket.tryConsume(1);
     }
 }
